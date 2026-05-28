@@ -13,6 +13,7 @@ import {
 export enum OidcAuthStatus {
   PENDING = 'pending', // 等待用户授权
   AUTHORIZED = 'authorized', // 已授权
+  CONSUMED = 'consumed', // 已消费（Token已被客户端取走）
   EXPIRED = 'expired', // 已过期
   CANCELLED = 'cancelled', // 已取消
 }
@@ -109,18 +110,18 @@ export class OidcAuthState {
   accessToken: string;
 
   /**
-   * OIDC 访问令牌
-   * OIDC 提供商返回的 access_token
+   * PKCE code verifier
+   * 用于 Authorization Code Flow + PKCE 安全增强
    */
   @Column({ type: 'text', nullable: true })
-  oidcAccessToken: string;
+  codeVerifier: string;
 
   /**
-   * OIDC 刷新令牌
-   * OIDC 提供商返回的 refresh_token
+   * OIDC nonce
+   * 用于防止重放攻击，验证 ID Token 的合法性
    */
   @Column({ type: 'text', nullable: true })
-  oidcRefreshToken: string;
+  nonce: string;
 
   /**
    * 过期时间
