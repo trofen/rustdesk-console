@@ -8,29 +8,32 @@
 
 ## 📖 Overview
 
-**RustDesk Console** is a comprehensive management platform built with [NestJS](https://nestjs.com/) that powers the RustDesk remote desktop ecosystem. It provides robust device management, user authentication, address book management, security auditing, and real-time monitoring capabilities for enterprise-grade remote desktop deployments.
+**RustDesk Console** is a comprehensive management platform built with [NestJS](https://nestjs.com/) that powers the RustDesk remote desktop ecosystem. It provides robust device management, user authentication, address book management, strategy configuration, security auditing, and real-time monitoring capabilities for enterprise-grade remote desktop deployments.
 
-This console serves as the central hub for managing RustDesk clients, handling everything from user authentication and authorization to device grouping, access control, and comprehensive audit logging.
+This console serves as the central hub for managing RustDesk clients, handling everything from user authentication and authorization to device grouping, access control, strategy delivery, and comprehensive audit logging.
 
 ## ✨ Key Features
 
-### 🔐 Authentication & Security
-- **JWT-based Authentication**: Secure token-based authentication with automatic token refresh and revocation
-- **Two-Factor Authentication (TFA/OTP)**: Enhanced security using TOTP (Time-based One-Time Password) via `otplib`
+### Authentication & Security
+- **JWT-based Authentication**: Secure token-based authentication with automatic token refresh and revocation (JTI blacklist)
+- **Two-Factor Authentication (2FA/TOTP)**: Enhanced security using TOTP via `otplib`, with admin-enforced 2FA policies
 - **Email Verification**: Email-based verification system using Nodemailer with Handlebars templates
-- **OIDC Integration**: Support for OpenID Connect providers (e.g., Google, Azure AD, Okta)
+- **OIDC Integration**: Support for OpenID Connect providers (e.g., Google, GitHub) with Authorization Code Flow + PKCE, including web frontend login support
 - **Password Encryption**: Secure password hashing using `bcryptjs`
 - **Rate Limiting**: Built-in request throttling to prevent abuse (100 req/min default, 5 req/min for login)
 
-### 👥 User Management
-- Complete CRUD operations for user accounts
+### User Management
+- Complete CRUD operations for user accounts (RESTful conventions)
 - User invitation via email
-- Enable/disable user accounts
-- Force logout capabilities
-- Admin role-based access control
+- Enable/disable user accounts with batch operations
+- Force logout capabilities (single and batch)
+- Admin role-based access control with dedicated admin user queries
 - TFA enforcement policies
+- User avatar upload and management (auto-converted to WebP, 256x256)
+- Change password for current user
+- Batch security settings management (TFA enforcement, email verification)
 
-### 📖 Address Book Management
+### Address Book Management
 - Personal and shared address books
 - Device peer management (add, update, delete)
 - Tag-based organization with custom colors
@@ -38,29 +41,54 @@ This console serves as the central hub for managing RustDesk clients, handling e
 - Legacy API compatibility support
 - Pagination and search functionality
 
-### 🖥️ Device Group Management
+### Device Group Management
 - Create and manage device groups
 - Assign devices to groups with role-based permissions
 - User-to-user permission mapping
 - Device enable/disable controls
 - Accessible resource queries based on user permissions
+- Batch device status updates
+- Force disconnect device connections
 
-### 📊 Audit & Compliance
-- **Connection Auditing**: Track all remote connections (established, closed, authorized)
-- **File Transfer Auditing**: Monitor file send/receive operations with file details
+### Strategy Management
+- Create and manage configuration strategies
+- Assign strategies to devices, users, or device groups
+- Strategy lookup priority: device > user > device group
+- Batch assign/unassign operations (up to 200 targets)
+- Strategy delivery via heartbeat response
+
+### Dashboard & Analytics
+- Overview statistics (users, devices, connections, alarms)
+- Trend analysis with configurable time ranges (7d/30d/90d)
+- Real-time monitoring data
+- Multi-metric support (connection, user, device, alarm)
+
+### Audit & Compliance
+- **Connection Auditing**: Track all remote connections (established, closed, authorized) with connection type classification
+- **File Transfer Auditing**: Monitor file send/receive operations with file details and advanced filters
 - **Security Alarm Auditing**: Log security events (IP whitelist violations, brute force attempts, etc.)
+- **Console Auditing**: Track management console operations
+- Connection audit note management
 - Comprehensive timestamp tracking (requested, established, closed times)
 
-### 💓 Real-time Monitoring
+### Real-time Monitoring
 - **Heartbeat System**: Monitor device online status and last activity
+- **Active Connection Tracking**: Track currently active remote connections
 - **System Information Collection**: Gather hardware/OS details from connected devices
 - Automatic status updates and device tracking
+- Force disconnect via heartbeat response
 
-### 📧 Email Services
+### Email Services
 - Welcome email templates
 - Verification code emails
 - Customizable Handlebars templates
-- SMTP configuration support
+- SMTP configuration management API with test endpoint
+- Dynamic SMTP settings via system settings API
+
+### System Settings
+- Generic key-value settings storage
+- SMTP configuration management (CRUD with password masking)
+- SMTP connection testing
 
 ## 🛠️ Tech Stack
 
@@ -71,8 +99,10 @@ This console serves as the central hub for managing RustDesk clients, handling e
 | **Authentication** | JWT (passport-jwt), Passport.js |
 | **Security** | bcryptjs, otplib (TOTP), @nestjs/throttler |
 | **Email** | Nodemailer + Handlebars templates |
+| **Image Processing** | sharp (avatar conversion to WebP) |
+| **OIDC** | openid-client (Authorization Code Flow + PKCE) |
 | **Validation** | class-validator, class-transformer |
-| **Utilities** | uuid, dotenv |
+| **Utilities** | uuid, dotenv, cookie-parser |
 | **Testing** | Jest, supertest |
 
 ## 🚀 Quick Start
@@ -126,7 +156,6 @@ docker run -d \
   -p 3000:3000 \
   -e JWT_SECRET=your-super-secret-key \
   -e ADMIN_PASSWORD=your-secure-password \
-  -e SMTP_HOST=smtp.example.com \
   databk/rustdesk-console:latest
 ```
 
@@ -161,8 +190,7 @@ docker pull ghcr.io/databk/rustdesk-console:latest
 
 Available tags for both Docker Hub and GHCR:
 - `latest` - Latest stable release
-- `X.Y.Z` - Specific version (e.g., `1.0.0`)
-- `dev` - Latest development build
+- `X.Y.Z` - Specific version (e.g., `1.3.0`)
 
 ### Running the Application
 
@@ -192,49 +220,25 @@ src/
 │
 ├── modules/
 │   ├── auth/                  # Authentication & authorization (JWT, TFA, OIDC, email)
-│   ├── user/                  # User management (admin CRUD operations)
+│   ├── user/                  # User management (CRUD, avatar, password, admin queries)
 │   ├── address-book/          # Address book & device peer management
 │   ├── device-group/          # Device grouping & permissions
-│   ├── audit/                 # Connection/file/alarm audit logging
-│   ├── heartbeat/             # Device heartbeat monitoring
+│   ├── strategy/              # Strategy configuration & assignment
+│   ├── audit/                 # Connection/file/alarm/console audit logging
+│   ├── heartbeat/             # Device heartbeat monitoring & active connections
 │   ├── sysinfo/               # System information collection
-│   ├── oidc/                  # OpenID Connect integration
+│   ├── oidc/                  # OpenID Connect integration (client & web login)
+│   ├── dashboard/             # Dashboard statistics & analytics
+│   ├── settings/              # System settings (SMTP configuration)
 │   └── email/                 # Email services (templates, SMTP)
 │
 ├── common/                    # Shared utilities (guards, decorators, entities)
 └── database/                  # Database initialization & seed data
 ```
 
-> **Note**: For detailed API endpoint documentation and database schema, please refer to the dedicated documentation files (coming soon).
-
 ## ⚙️ Environment Configuration
 
-Copy `.env.example` to `.env` and configure the following variables:
-
-```env
-# Server Configuration
-PORT=3000                          # API server port
-
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-change-in-production  # Secret key for signing JWTs
-
-# Default Admin Account (auto-created on first run)
-ADMIN_USERNAME=admin               # Default admin username
-ADMIN_EMAIL=admin@example.com      # Default admin email
-ADMIN_PASSWORD=admin123           # Default admin password (CHANGE IN PRODUCTION!)
-
-# Database Configuration
-# Currently uses SQLite (rustdesk.db file in project root)
-# To use PostgreSQL/MySQL, modify TypeORM config in src/app.module.ts
-
-# SMTP Configuration (for email verification & notifications)
-SMTP_HOST=smtp.example.com        # SMTP server hostname
-SMTP_PORT=587                     # SMTP port (587 for TLS, 465 for SSL)
-SMTP_SECURE=false                 # Use true for SSL/TLS
-SMTP_USER=your-email@example.com  # SMTP username
-SMTP_PASS=your-email-password     # SMTP password
-SMTP_FROM="No Reply" <noreply@example.com>  # Sender display name & email
-```
+Copy `.env.example` to `.env` and configure the variables.
 
 > ⚠️ **Security Note**: Always change default passwords and JWT secrets before deploying to production!
 
@@ -243,13 +247,16 @@ SMTP_FROM="No Reply" <noreply@example.com>  # Sender display name & email
 The application uses **SQLite** as the default database engine (file: `rustdesk.db` in project root), managed by **TypeORM 0.3**.
 
 **Core Data Models Include:**
-- User accounts & tokens
+- User accounts, tokens & avatars
 - Address books, peers, tags & access rules
 - Device groups & permissions
-- Audit logs (connections, file transfers, alarms)
+- Strategies & assignments
+- Audit logs (connections, file transfers, alarms, console)
+- Active connections
 - Device system information & heartbeats
 - OIDC provider configurations & auth states
 - Email verification sessions
+- System settings
 
 > **Configuration**: Database settings can be modified in [`src/app.module.ts`](src/app.module.ts). The application supports migration to PostgreSQL or MySQL for production deployments requiring higher concurrency.
 
@@ -261,13 +268,23 @@ The application uses **SQLite** as the default database engine (file: `rustdesk.
 3. Returns JWT access token + refresh token
 4. Client includes Bearer token in Authorization header for subsequent requests
 5. Token is validated on each request via `JwtAuthGuard`
-6. Token can be revoked via `POST /api/logout`
+6. Token can be revoked via `POST /api/logout` (JTI blacklist)
+
+### 2FA Flow
+1. User calls `POST /api/2fa/setup` to generate TOTP secret and QR code URL
+2. User verifies with `POST /api/2fa/verify` to bind the 2FA secret
+3. On login, if 2FA is enabled, server returns `tfa_check` response
+4. Client submits TFA code to complete login
+5. Admins can enforce 2FA for users; enforced users cannot disable 2FA themselves
 
 ### Rate Limiting Strategy
 - **Global**: 100 requests per minute per IP
 - **Login endpoint**: 5 attempts per minute (brute force protection)
 - **Heartbeat submissions**: 10 per minute per device
 - **System info submissions**: 5 per minute per device
+- **Audit recording**: 50 per minute
+- **Avatar access**: 60 per minute
+- **OIDC auth query**: 120 per minute
 
 ### Security Layers
 - **JwtAuthGuard**: Global JWT authentication (bypassed via `@Public()` decorator)
@@ -309,13 +326,14 @@ npm run test:debug     # Run tests in debug mode
   - Classes: PascalCase (`AuthService`)
   - Methods/Variables: camelCase (`getUserById`)
 - **Documentation**: JSDoc comments on public methods
+- **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/)
 
 ## 🐳 Deployment Considerations
 
 ### Production Checklist
 - [ ] Change `JWT_SECRET` to a strong random value (min 32 chars)
 - [ ] Change default admin password in `.env`
-- [ ] Configure production SMTP settings
+- [ ] Configure production SMTP settings via the Settings API
 - [ ] Set `synchronize: false` in TypeORM config and use migrations
 - [ ] Configure CORS origins to your frontend domain only
 - [ ] Set up HTTPS/reverse proxy (nginx, Apache, etc.)
@@ -323,6 +341,7 @@ npm run test:debug     # Run tests in debug mode
 - [ ] Set up process manager (PM2, systemd) for auto-restart
 - [ ] Review and adjust rate limiting for your traffic patterns
 - [ ] Enable proper logging (currently disabled: `logging: false`)
+- [ ] Configure `WEB_FRONTEND_URLS` for OIDC web login
 
 ### Scaling Notes
 - **SQLite Limitations**: Single-writer, suitable for small-medium deployments (< 100 concurrent users)
