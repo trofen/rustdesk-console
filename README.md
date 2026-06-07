@@ -119,7 +119,9 @@ This console serves as the central hub for managing RustDesk clients, handling e
 
 ### Installation
 
-RustDesk Console provides multiple installation methods to suit different deployment needs:
+RustDesk Console provides multiple installation methods to suit different deployment needs.
+
+> **Default Admin Credentials**: username `databk`, password `databk`. Please change the default password before deploying to production!
 
 #### 🔧 Option 1: Build from Source (Recommended for Development)
 
@@ -146,33 +148,17 @@ This project uses a **frontend-backend separated architecture**. The backend (th
 
 **Docker Compose** (recommended):
 
-```yaml
-version: '3.8'
-services:
-  rustdesk-console:
-    image: databk/rustdesk-console:latest
-    container_name: rustdesk-console
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - JWT_SECRET=your-super-secret-key
-      - ADMIN_PASSWORD=your-secure-password
+The project includes a [`docker-compose.yml`](docker-compose.yml) file for easy deployment.
 
-  rustdesk-console-web:
-    image: databk/rustdesk-console-web:latest
-    container_name: rustdesk-console-web
-    ports:
-      - "21114:80"
-    depends_on:
-      - rustdesk-console
-    restart: unless-stopped
+```bash
+docker compose up -d
 ```
 
 > **Note**: The frontend container connects to the backend via the internal Docker network using the service name `rustdesk-console:3000`. No additional network configuration is needed with the default setup.
 
 **Using GitHub Container Registry (ghcr)**:
 
-If you prefer GHCR images, replace the image lines:
+If you prefer GHCR images, modify the image lines in [`docker-compose.yml`](docker-compose.yml):
 
 ```yaml
     image: ghcr.io/databk/rustdesk-console:latest      # backend
@@ -190,7 +176,6 @@ docker run -d \
   --name rustdesk-console \
   --network rustdesk-net \
   -e JWT_SECRET=your-super-secret-key \
-  -e ADMIN_PASSWORD=your-secure-password \
   databk/rustdesk-console:latest
 
 # Start the frontend
@@ -198,6 +183,7 @@ docker run -d \
   --name rustdesk-console-web \
   --network rustdesk-net \
   -p 21114:80 \
+  -e BACKEND_URL=http://rustdesk-console:3000 \
   databk/rustdesk-console-web:latest
 ```
 
@@ -345,7 +331,7 @@ npm run test:debug     # Run tests in debug mode
 
 ### Production Checklist
 - [ ] Change `JWT_SECRET` to a strong random value (min 32 chars)
-- [ ] Change default admin password in `.env`
+- [ ] Change default admin password (default: `databk`) in `.env`
 - [ ] Configure production SMTP settings via the Settings API
 - [ ] Set `synchronize: false` in TypeORM config and use migrations
 - [ ] Configure CORS origins to your frontend domain only
